@@ -1,0 +1,240 @@
+-- [[ SILENCE HUB - FULL REPAIR & STABILIZATION ]]
+local Rayfield = nil
+local success, err = pcall(function()
+    Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+end)
+
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ProximityPromptService = game:GetService("ProximityPromptService")
+
+-- [[ GLOBAL STATE ]]
+getgenv().Toggles = {
+    Fly = false,
+    FlySpeed = 50,
+    WalkSpeed = 16,
+    JumpPower = 50,
+    ESP = false,
+    PetESP = false,
+    Noclip = false,
+    Aimbot = false,
+    TweenSpeed = 1,
+    InstantPrompt = false,
+    Waypoint = nil,
+    TargetPet = nil
+}
+
+-- [[ 1. PET ESP UTILITY ]]
+local function ParsePetValue(text)
+    local numericPart = text:match("%$(%d+%.?%d*)")
+    if not numericPart then return 0 end
+    local value = tonumber(numericPart)
+    
+    if text:find("T") or text:find("t") then value = value * 1000000000000
+    elseif text:find("B") or text:find("b") then value = value * 1000000000
+    elseif text:find("M") or text:find("m") then value = value * 1000000 
+    elseif text:find("K") or text:find("k") then value = value * 1000 end
+    return value
+end
+
+local function UpdatePetESP()
+    if not getgenv().Toggles.PetESP then 
+        getgenv().Toggles.TargetPet = nil
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v.Name == "SilencePetHL" then v:Destroy() end
+        end
+        return 
+    end
+
+    local topPet = nil
+    local topValue = 300000 
+
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("TextLabel") and v.Text:find("/s") then
+            local currentVal = ParsePetValue(v.Text)
+            if currentVal >= topValue then
+                topValue = currentVal
+                topPet = v:FindFirstAncestorOfClass("Model") or v.Parent
+            end
+        end
+    end
+
+    for _, old in pairs(workspace:GetDescendants()) do
+        if old.Name == "SilencePetHL" then old:Destroy() end
+    end
+
+    if topPet then
+        getgenv().Toggles.TargetPet = topPet
+        local hl = Instance.new("Highlight")
+        hl.Name = "SilencePetHL"
+        hl.FillColor = Color3.fromRGB(0, 255, 0)
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+        hl.Parent = topPet
+    else
+        getgenv().Toggles.TargetPet = nil
+    end
+end
+
+-- [[ 2. INSTANT PROXIMITY PROMPT ]]
+ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
+    if getgenv().Toggles.InstantPrompt then
+        prompt.HoldDuration = 0
+        if fireproximityprompt then fireproximityprompt(prompt) end
+    end
+end)
+
+-- [[ 3. SECURITY SCANNER ]]
+local function ScanForText(obj)
+    if obj:IsA("TextLabel") or obj:IsA("TextBox") or obj:IsA("TextButton") then
+        local function check()
+            if string.find(string.lower(obj.Text), "you stole") then
+                LocalPlayer:Kick("\n[Silence Hub FUCKING MOGS AND STOLE A PET]\nSafety Kick")
+            end
+        end
+        check()
+        obj:GetPropertyChangedSignal("Text"):Connect(check)
+    end
+end
+game.DescendantAdded:Connect(ScanForText)
+
+-- [[ 4. THE MENU ]]
+if Rayfield then
+    local Window = Rayfield:CreateWindow({
+        Name = "Silence Hub",
+        LoadingTitle = "Made By @skelemade",
+        LoadingSubtitle = "This Script Is Fucking Goated",
+        ConfigurationSaving = {Enabled = true, FolderName = "SilenceHubData", FileName = "Config"},
+        KeySystem = true,
+        KeySettings = {
+            Title = "Silence Hub | Access",
+            Subtitle = "Key System",
+            Note = "Key: 67",
+            FileName = "SilenceKey",
+            SaveKey = true,
+            Key = {"67"} 
+        }
+    })
+
+    local MainTab = Window:CreateTab("Main", 4483362458)
+    local VisualsTab = Window:CreateTab("Visuals", 4483345998)
+
+    MainTab:CreateSection("Automation")
+    MainTab:CreateToggle({
+        Name = "Instant Proximity Prompt",
+        CurrentValue = false,
+        Callback = function(V) getgenv().Toggles.InstantPrompt = V end,
+    })
+
+    MainTab:CreateSection("Character Modifiers")
+    MainTab:CreateSlider({
+        Name = "Walk Speed",
+        Range = {16, 250},
+        Increment = 1,
+        CurrentValue = 16,
+        Callback = function(V) getgenv().Toggles.WalkSpeed = V end,
+    })
+
+    MainTab:CreateSection("Waypoint Management")
+    MainTab:CreateSlider({
+        Name = "Tween Speed",
+        Range = {0.1, 10},
+        Increment = 0.5,
+        CurrentValue = 2,
+        Callback = function(V) getgenv().Toggles.TweenSpeed = V end,
+    })
+
+    MainTab:CreateButton({
+        Name = "Set Waypoint",
+        Callback = function()
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                getgenv().Toggles.Waypoint = LocalPlayer.Character.HumanoidRootPart.CFrame
+                Rayfield:Notify({Title = "System", Content = "Waypoint Saved", Duration = 2})
+            end
+        end,
+    })
+
+    MainTab:CreateToggle({
+        Name = "Noclip",
+        CurrentValue = false,
+        Callback = function(V) getgenv().Toggles.Noclip = V end,
+    })
+
+    VisualsTab:CreateSection("ESP Options")
+    VisualsTab:CreateToggle({
+        Name = "Highest Money Pet ESP (300K+)",
+        CurrentValue = false,
+        Callback = function(V) getgenv().Toggles.PetESP = V end,
+    })
+
+    VisualsTab:CreateToggle({
+        Name = "Enable Player ESP",
+        CurrentValue = false,
+        Callback = function(V) getgenv().Toggles.ESP = V end,
+    })
+end
+
+-- [[ 5. ON-SCREEN BUTTONS ]]
+local ScreenGui = Instance.new("ScreenGui", (game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")))
+ScreenGui.Name = "SilenceNavUI"
+
+local function CreateNavBtn(name, text, pos, color)
+    local btn = Instance.new("TextButton", ScreenGui)
+    btn.Name = name
+    btn.Size = UDim2.new(0, 150, 0, 40)
+    btn.Position = pos
+    btn.BackgroundColor3 = color
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.Draggable = true
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    return btn
+end
+
+local WpBtn = CreateNavBtn("WpBtn", "Tween to Waypoint", UDim2.new(0.5, -155, 0.85, 0), Color3.fromRGB(45, 45, 45))
+local PetBtn = CreateNavBtn("PetBtn", "Tween to Best Pet", UDim2.new(0.5, 5, 0.85, 0), Color3.fromRGB(0, 100, 0))
+
+WpBtn.MouseButton1Click:Connect(function()
+    if getgenv().Toggles.Waypoint and LocalPlayer.Character then
+        local info = TweenInfo.new(getgenv().Toggles.TweenSpeed, Enum.EasingStyle.Linear)
+        TweenService:Create(LocalPlayer.Character.HumanoidRootPart, info, {CFrame = getgenv().Toggles.Waypoint}):Play()
+    end
+end)
+
+PetBtn.MouseButton1Click:Connect(function()
+    if getgenv().Toggles.TargetPet and LocalPlayer.Character then
+        local target = getgenv().Toggles.TargetPet
+        local targetCF = target:IsA("Model") and target:GetPivot() or target.CFrame
+        local info = TweenInfo.new(getgenv().Toggles.TweenSpeed, Enum.EasingStyle.Linear)
+        TweenService:Create(LocalPlayer.Character.HumanoidRootPart, info, {CFrame = targetCF}):Play()
+    end
+end)
+
+-- [[ 6. ENGINE LOOPS ]]
+RunService.RenderStepped:Connect(function()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("Humanoid") then return end
+
+    char.Humanoid.WalkSpeed = getgenv().Toggles.WalkSpeed
+    
+    if getgenv().Toggles.Noclip then
+        for _, v in pairs(char:GetDescendants()) do
+            if v:IsA("BasePart") then v.CanCollide = false end
+        end
+    end
+    
+    pcall(UpdatePetESP)
+
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local hl = p.Character:FindFirstChild("SilenceHighlight")
+            if getgenv().Toggles.ESP then
+                if not hl then hl = Instance.new("Highlight", p.Character) hl.Name = "SilenceHighlight" end
+                hl.Enabled = true
+            elseif hl then hl.Enabled = false end
+        end
+    end
+end)
