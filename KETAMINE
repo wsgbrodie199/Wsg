@@ -1,0 +1,278 @@
+-- Base Protector V3 Ultimate - 0.055s Delay + Custom Kick Message
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+
+local LocalPlayer = Players.LocalPlayer
+while not LocalPlayer do task.wait() LocalPlayer = Players.LocalPlayer end
+
+-- Always on, no off switch
+local spamKickEnabled = true
+local antiTPEnabled = true
+local punishedPlayers = {}
+local antiTPCooldowns = {}
+
+local priorityCommands = {"rocket", "balloon"}
+local secondaryCommands = {"inverse", "tiny", "morph", "jumpscare"}
+
+-- Reliable system notification
+StarterGui:SetCore("SendNotification", {
+	Title = "Base Protector V3",
+	Text = "EXECUTED",
+	Duration = 2,
+	Button1 = "OK"
+})
+
+-- Find Admin Remote
+local adminRemote = nil
+local notificationRemote = nil
+
+task.spawn(function()
+	local Packages = ReplicatedStorage:WaitForChild("Packages", 5)
+	if Packages then
+		local Net = Packages:WaitForChild("Net", 5)
+		if Net then
+			adminRemote = Net:FindFirstChild("RE/352aad5B-c786-4998-886b-3e4fa390721e")
+			if not adminRemote or not adminRemote:IsA("RemoteEvent") then
+				for _, obj in pairs(Net:GetChildren()) do
+					if obj:IsA("RemoteEvent") and obj.Name:lower():find("352aad5") then
+						adminRemote = obj
+						break
+					end
+				end
+			end
+			notificationRemote = Net:FindFirstChild("RE/NotificationService/Notify")
+		end
+	end
+	if not adminRemote then
+		for _, obj in pairs(game:GetDescendants()) do
+			if obj:IsA("RemoteEvent") and obj.Name:lower():find("352aad5") then
+				adminRemote = obj
+				break
+			end
+		end
+	end
+end)
+
+local function sendCommand(command, targetPlayer)
+	if not adminRemote then return end
+	task.spawn(function()
+		pcall(function()
+			adminRemote:FireServer("78a772b6-9e1c-4827-ab8b-04a07838f298", targetPlayer, command)
+		end)
+	end)
+end
+
+local function findMyPlot()
+	local plotsFolder = workspace:FindFirstChild("Plots")
+	if not plotsFolder then return nil end
+	for _, plot in pairs(plotsFolder:GetChildren()) do
+		local plotSign = plot:FindFirstChild("PlotSign")
+		if plotSign and plotSign:FindFirstChild("YourBase") and plotSign.YourBase:IsA("BillboardGui") and plotSign.YourBase.Enabled then
+			return plot
+		end
+	end
+	local playerName = LocalPlayer.Name
+	for _, plot in pairs(plotsFolder:GetChildren()) do
+		if string.find(plot.Name, playerName) then return plot end
+		local owner = plot:FindFirstChild("Owner")
+		if owner and owner.Value == LocalPlayer then return plot end
+	end
+	if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		local hrp = LocalPlayer.Character.HumanoidRootPart
+		for _, plot in pairs(plotsFolder:GetChildren()) do
+			local plotPart = plot:FindFirstChild("PlotPart") or plot:FindFirstChild("Base")
+			if plotPart and plotPart:IsA("BasePart") and (hrp.Position - plotPart.Position).Magnitude < 100 then
+				return plot
+			end
+		end
+	end
+	return nil
+end
+
+local function getPlayersInMyPlot()
+	local myPlot = findMyPlot()
+	if not myPlot then return {} end
+	local playersInPlot = {}
+	local plotPosition = myPlot:GetPivot().Position
+	local plotSize = 120
+	local decorations = myPlot:FindFirstChild("Decorations")
+	if decorations and decorations:FindFirstChild("Model") then
+		plotPosition = decorations.Model:GetPivot().Position
+	end
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			local hrp = player.Character.HumanoidRootPart
+			if (hrp.Position - plotPosition).Magnitude < plotSize then
+				table.insert(playersInPlot, player)
+			end
+		end
+	end
+	return playersInPlot
+end
+
+-- Instant punish: kick after 0.055 second delay, then spam in background
+local function executeInstantPunish(targetUsername)
+	if not targetUsername or targetUsername == "" then return end
+	local targetPlayer = Players:FindFirstChild(targetUsername)
+	if not targetPlayer then return end
+
+	task.wait(0.055)  -- The exact delay requested
+	LocalPlayer:Kick("KETAMINE IS THE BEST https://discord.gg/e9gpxPPPX")  -- Custom kick message
+	
+	-- Fire all attack commands asynchronously
+	task.spawn(function()
+		sendCommand("balloon", targetPlayer)
+		sendCommand("jail", targetPlayer)
+		for _, cmd in ipairs(priorityCommands) do
+			sendCommand(cmd, targetPlayer)
+		end
+		for _, cmd in ipairs(secondaryCommands) do
+			sendCommand(cmd, targetPlayer)
+		end
+	end)
+end
+
+local function executeDefense(targetPlayerName)
+	if not spamKickEnabled then return end
+	if punishedPlayers[targetPlayerName] then return end
+	punishedPlayers[targetPlayerName] = true
+
+	executeInstantPunish(targetPlayerName)
+
+	task.delay(30, function() punishedPlayers[targetPlayerName] = nil end)
+end
+
+local function executeAntiTP(targetPlayerName)
+	if not antiTPEnabled or antiTPCooldowns[targetPlayerName] then return end
+	antiTPCooldowns[targetPlayerName] = true
+
+	local targetPlayer = Players:FindFirstChild(targetPlayerName)
+	if not targetPlayer then return end
+
+	sendCommand("balloon", targetPlayer)
+	task.wait(0.01)
+	sendCommand("jail", targetPlayer)
+
+	task.delay(5, function() antiTPCooldowns[targetPlayerName] = nil end)
+end
+
+-- Anti‑TP System
+local function startAntiTP()
+	task.spawn(function()
+		task.wait(3)
+		local myPlot = findMyPlot()
+		if not myPlot then return end
+		local myDecorations = myPlot:FindFirstChild("Decorations")
+		local myAnimals = myPlot:FindFirstChild("AnimalPodiums")
+		local detectedPlayers = {}
+
+		while task.wait(0.1) do
+			if not antiTPEnabled then continue end
+			if not myDecorations then myDecorations = myPlot:FindFirstChild("Decorations") end
+			if not myAnimals then myAnimals = myPlot:FindFirstChild("AnimalPodiums") end
+
+			local playersInPlot = getPlayersInMyPlot()
+			for _, player in ipairs(playersInPlot) do
+				if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+					local hrp = player.Character.HumanoidRootPart
+					local tooClose = false
+					if myDecorations and myDecorations:FindFirstChild("Model") then
+						if (hrp.Position - myDecorations.Model:GetPivot().Position).Magnitude < 20 then
+							tooClose = true
+						end
+					end
+					if myAnimals and not tooClose then
+						for _, animalPodium in ipairs(myAnimals:GetChildren()) do
+							for _, part in ipairs(animalPodium:GetDescendants()) do
+								if part:IsA("BasePart") then
+									part.CanTouch = true
+									for _, touchingPart in ipairs(part:GetTouchingParts()) do
+										if touchingPart.Parent == player.Character then
+											tooClose = true
+											break
+										end
+									end
+								end
+								if tooClose then break end
+							end
+							if tooClose then break end
+						end
+					end
+					if tooClose and not detectedPlayers[player.Name] then
+						detectedPlayers[player.Name] = true
+						executeAntiTP(player.Name)
+						task.delay(2, function() detectedPlayers[player.Name] = nil end)
+					end
+				end
+			end
+		end
+	end)
+end
+
+-- Base Defender – instant kick on steal
+local function startBaseDefender()
+	local myPlot = nil
+	for i = 1, 10 do
+		myPlot = findMyPlot()
+		if myPlot then break end
+		task.wait(1)
+	end
+	if not myPlot then return end
+
+	if notificationRemote then
+		task.spawn(function()
+			notificationRemote.OnClientEvent:Connect(function(msg)
+				if typeof(msg) ~= "string" then return end
+				if not msg:find("Someone is stealing your") and not msg:find("Someone is robbing your") then return end
+
+				task.spawn(function()
+					local playersInPlot = getPlayersInMyPlot()
+					if #playersInPlot == 0 then return end
+
+					if #playersInPlot == 1 then
+						executeDefense(playersInPlot[1].Name)
+						return
+					end
+
+					local closestPlayer = nil
+					local closestDistance = math.huge
+					local myDecorations = myPlot:FindFirstChild("Decorations")
+					local myAnimals = myPlot:FindFirstChild("AnimalPodiums")
+
+					for _, player in ipairs(playersInPlot) do
+						if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+							local hrp = player.Character.HumanoidRootPart
+							local minDist = math.huge
+							if myDecorations and myDecorations:FindFirstChild("Model") then
+								minDist = math.min(minDist, (hrp.Position - myDecorations.Model:GetPivot().Position).Magnitude)
+							end
+							if myAnimals then
+								for _, animal in ipairs(myAnimals:GetChildren()) do
+									minDist = math.min(minDist, (hrp.Position - animal:GetPivot().Position).Magnitude)
+								end
+							end
+							if minDist < closestDistance then
+								closestDistance = minDist
+								closestPlayer = player
+							end
+						end
+					end
+
+					if closestPlayer then
+						executeDefense(closestPlayer.Name)
+					elseif playersInPlot[1] then
+						executeDefense(playersInPlot[1].Name)
+					end
+				end)
+			end)
+		end)
+	end
+end
+
+-- Enable everything immediately
+startBaseDefender()
+startAntiTP()
