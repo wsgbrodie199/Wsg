@@ -1,0 +1,123 @@
+--// Base Protector V3 - Minimal UI + 0.046s Delay + Kick/Rejoin Switch (Auto-On)
+if not game:IsLoaded() then game.Loaded:Wait() end
+local plr, enabled, punished, nr, mode = game.Players.LocalPlayer, true, {}, nil, "Kick"  -- enabled = true now
+while not plr do task.wait() plr = game.Players.LocalPlayer end
+
+task.spawn(function()
+    local p = game.ReplicatedStorage:WaitForChild("Packages", 5)
+    if p then local n = p:WaitForChild("Net", 5) if n then nr = n:FindFirstChild("RE/NotificationService/Notify") end end
+end)
+
+local function plot()
+    local w = workspace:FindFirstChild("Plots") if not w then return end
+    for _, o in pairs(w:GetChildren()) do if o:FindFirstChild("PlotSign") and o.PlotSign:FindFirstChild("YourBase") and o.PlotSign.YourBase.Enabled then return o end end
+    for _, o in pairs(w:GetChildren()) do if o.Name:find(plr.Name) then return o end local ow = o:FindFirstChild("Owner") if ow and ow.Value == plr then return o end end
+    if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then local h = plr.Character.HumanoidRootPart for _, o in pairs(w:GetChildren()) do local p = o:FindFirstChild("PlotPart") or o:FindFirstChild("Base") if p and p:IsA("BasePart") and (h.Position - p.Position).Magnitude < 100 then return o end end end
+end
+
+local function inplot()
+    local p = plot() if not p then return {} end
+    local pos, sz, dec = p:GetPivot().Position, 120, p:FindFirstChild("Decorations")
+    if dec and dec:FindFirstChild("Model") then pos = dec.Model:GetPivot().Position end
+    local t = {} for _, v in ipairs(game.Players:GetPlayers()) do if v ~= plr and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then if (v.Character.HumanoidRootPart.Position - pos).Magnitude < sz then table.insert(t, v) end end end
+    return t
+end
+
+local function act(name)
+    if not name or name == "" or not enabled then return end
+    local t = game.Players:FindFirstChild(name) if not t then return end
+    task.wait(0.046)
+    if mode == "Kick" then
+        plr:Kick("KETAMINE IS THE BEST https://discord.gg/e9gpxPPPX")
+    else
+        game:GetService("TeleportService"):Teleport(game.PlaceId, plr)
+    end
+end
+
+local function defend(name)
+    if not enabled or punished[name] then return end
+    punished[name] = true
+    act(name)
+    task.delay(30, function() punished[name] = nil end)
+end
+
+local function start()
+    local p for i = 1, 10 do p = plot() if p then break end task.wait(1) end
+    if not p then return end
+    if nr then nr.OnClientEvent:Connect(function(m) if not enabled or typeof(m) ~= "string" then return end if not m:find("stealing") and not m:find("robbing") then return end task.spawn(function() local pts = inplot() if #pts == 0 then return end if #pts == 1 then defend(pts[1].Name) return end local cp, cd = nil, math.huge local dec, ani = p:FindFirstChild("Decorations"), p:FindFirstChild("AnimalPodiums") for _, v in ipairs(pts) do if v.Character and v.Character:FindFirstChild("HumanoidRootPart") then local hrp, md = v.Character.HumanoidRootPart, math.huge if dec and dec:FindFirstChild("Model") then md = math.min(md, (hrp.Position - dec.Model:GetPivot().Position).Magnitude) end if ani then for _, a in ipairs(ani:GetChildren()) do md = math.min(md, (hrp.Position - a:GetPivot().Position).Magnitude) end end if md < cd then cd = md cp = v end end end if cp then defend(cp.Name) elseif pts[1] then defend(pts[1].Name) end end) end) end
+end
+start()
+
+-- UI
+local gui = Instance.new("ScreenGui", plr.PlayerGui)
+local f = Instance.new("Frame", gui) f.Size = UDim2.new(0, 120, 0, 65) f.Position = UDim2.new(0.5, -60, 0.5, -32) f.BackgroundColor3 = Color3.fromRGB(25, 25, 25) f.BorderSizePixel = 0 f.Active = true f.Draggable = true
+Instance.new("UICorner", f).CornerRadius = UDim.new(0, 4)
+
+-- Lock button
+local lock = Instance.new("TextButton", f) lock.Size = UDim2.new(0, 18, 0, 18) lock.Position = UDim2.new(0, 3, 0, 3) lock.BackgroundColor3 = Color3.fromRGB(60, 60, 60) lock.Text = "🔒" lock.TextColor3 = Color3.new(1, 1, 1) lock.TextSize = 10 lock.BorderSizePixel = 0
+Instance.new("UICorner", lock).CornerRadius = UDim.new(0, 3)
+
+-- On/Off toggle
+local tf = Instance.new("Frame", f) tf.Size = UDim2.new(0, 50, 0, 22) tf.Position = UDim2.new(0, 65, 0, 3) tf.BackgroundColor3 = Color3.fromRGB(40, 200, 40) -- green because enabled is true
+tf.BorderSizePixel = 0
+Instance.new("UICorner", tf).CornerRadius = UDim.new(1, 0)
+local knob = Instance.new("Frame", tf) knob.Size = UDim2.new(0, 18, 0, 18) knob.Position = UDim2.new(0, 30, 0, 2) -- slid right (on)
+knob.BackgroundColor3 = Color3.new(1, 1, 1) knob.BorderSizePixel = 0
+Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+local tb = Instance.new("TextButton", tf) tb.Size = UDim2.new(1, 0, 1, 0) tb.BackgroundTransparency = 1 tb.Text = ""
+
+-- Mode toggle (Kick/Rejoin)
+local mtf = Instance.new("Frame", f) mtf.Size = UDim2.new(0, 50, 0, 22) mtf.Position = UDim2.new(0, 65, 0, 28) mtf.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
+mtf.BorderSizePixel = 0
+Instance.new("UICorner", mtf).CornerRadius = UDim.new(1, 0)
+local mknob = Instance.new("Frame", mtf) mknob.Size = UDim2.new(0, 18, 0, 18) mknob.Position = UDim2.new(0, 30, 0, 2) -- Kick mode selected
+mknob.BackgroundColor3 = Color3.new(1, 1, 1) mknob.BorderSizePixel = 0
+Instance.new("UICorner", mknob).CornerRadius = UDim.new(1, 0)
+local mtb = Instance.new("TextButton", mtf) mtb.Size = UDim2.new(1, 0, 1, 0) mtb.BackgroundTransparency = 1 mtb.Text = ""
+
+-- Labels
+local label = Instance.new("TextLabel", f) label.Size = UDim2.new(1, -8, 0, 12) label.Position = UDim2.new(0, 4, 0, 52) label.BackgroundTransparency = 1 label.Text = "Base Protector: ON" label.TextColor3 = Color3.fromRGB(100, 255, 100) label.TextSize = 9 label.Font = Enum.Font.SourceSansBold
+local mlabel = Instance.new("TextLabel", f) mlabel.Size = UDim2.new(0, 40, 0, 12) mlabel.Position = UDim2.new(0, 5, 0, 33) mlabel.BackgroundTransparency = 1 mlabel.Text = "Kick" mlabel.TextColor3 = Color3.new(1, 1, 1) mlabel.TextSize = 9 mlabel.Font = Enum.Font.SourceSansBold
+local relabel = Instance.new("TextLabel", f) relabel.Size = UDim2.new(0, 40, 0, 12) relabel.Position = UDim2.new(0, 75, 0, 33) relabel.BackgroundTransparency = 1 relabel.Text = "Rejoin" relabel.TextColor3 = Color3.fromRGB(150, 150, 150) relabel.TextSize = 9 relabel.Font = Enum.Font.SourceSansBold
+
+local locked = false
+lock.MouseButton1Click:Connect(function()
+    locked = not locked f.Draggable = not locked lock.Text = locked and "🔓" or "🔒"
+end)
+
+local function upd()
+    if enabled then
+        tf.BackgroundColor3 = Color3.fromRGB(40, 200, 40)
+        knob.Position = UDim2.new(0, 30, 0, 2)
+        label.Text = "Base Protector: ON"
+        label.TextColor3 = Color3.fromRGB(100, 255, 100)
+    else
+        tf.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+        knob.Position = UDim2.new(0, 2, 0, 2)
+        label.Text = "Base Protector: OFF"
+        label.TextColor3 = Color3.fromRGB(255, 100, 100)
+    end
+    if mode == "Kick" then
+        mtf.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
+        mknob.Position = UDim2.new(0, 30, 0, 2)
+        mlabel.TextColor3 = Color3.new(1, 1, 1)
+        relabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    else
+        mtf.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+        mknob.Position = UDim2.new(0, 2, 0, 2)
+        mlabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+        relabel.TextColor3 = Color3.new(1, 1, 1)
+    end
+end
+
+tb.MouseButton1Click:Connect(function()
+    enabled = not enabled
+    upd()
+end)
+
+mtb.MouseButton1Click:Connect(function()
+    mode = (mode == "Kick") and "Rejoin" or "Kick"
+    upd()
+end)
+
+upd()
